@@ -1,0 +1,370 @@
+<section class="page" id="work">
+  <h2>WORK</h2>
+  <div class="work-tabs" id="work-tabs" role="tablist" aria-label="Work filter tabs"></div>
+
+  <div class="grid" id="work-grid" aria-live="polite"></div>
+
+  <div class="sub" id="work-error" style="display:none;"></div>
+
+  <script>
+    (() => {
+      const grid = document.getElementById('work-grid');
+      const err = document.getElementById('work-error');
+      if (!grid) return;
+
+      // JSON location (relative to index.html base)
+      const WORKS_JSON_URL = new URL('assets/data/works.json', document.baseURI).toString();
+
+      const byId = new Map();
+
+      // Tab configuration: put preferred tabs here (must match a tag string)
+      // Tabs that don't exist in data will be omitted.
+      const PINNED_TABS = ['App', 'Event', 'Article'];
+
+      const tabsEl = document.getElementById('work-tabs');
+      let allItems = [];
+      let activeTag = 'All';
+
+      function el(tag, className) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        return e;
+      }
+
+      function normalizeWorks(json) {
+        if (!json) return [];
+        if (Array.isArray(json)) return json;
+        if (Array.isArray(json.works)) return json.works;
+        if (Array.isArray(json.items)) return json.items;
+        return [];
+      }
+
+      function safeText(v) {
+        return typeof v === 'string' ? v : (v == null ? '' : String(v));
+      }
+
+      function normalizeTags(v) {
+        if (!Array.isArray(v)) return [];
+        return v.map(safeText).map((t) => t.trim()).filter(Boolean);
+      }
+
+      function countByTag(items) {
+        const map = new Map();
+        for (const it of items) {
+          const tags = normalizeTags(it.tags);
+          for (const t of tags) {
+            map.set(t, (map.get(t) || 0) + 1);
+          }
+        }
+        return map;
+      }
+
+      function toAbsUrl(maybeUrl) {
+        const s = safeText(maybeUrl).trim();
+        if (!s) return '';
+        try {
+          // Allow absolute or relative paths.
+          return new URL(s, document.baseURI).toString();
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function setPanel(titleText, html) {
+        const titleEl = document.getElementById('work-panel-title');
+        const bodyEl = document.getElementById('work-panel-body');
+        if (titleEl) titleEl.textContent = titleText || 'WORK';
+        if (bodyEl) bodyEl.innerHTML = html;
+        window.dispatchEvent(new CustomEvent('work:openPanel'));
+
+        // Fallback: open panel directly (in case index listener is not active)
+        try {
+          document.body.classList.add('work-panel-open');
+          const panel = document.getElementById('work-panel');
+          if (panel) panel.setAttribute('aria-hidden', 'false');
+        } catch (_) {
+          // ignore
+        }
+      }
+
+      function escapeHtml(s) {
+        return safeText(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function renderNote(note) {
+        const text = safeText(note);
+        if (!text) return '<p class="muted">詳細は準備中です。</p>';
+
+        // If index.html provides a markdown renderer, use it.
+        try {
+          if (typeof window.renderMarkdown === 'function') {
+            return window.renderMarkdown(text);
+          }
+        } catch (_) {
+          // ignore
+        }
+
+        // Fallback: paragraph-only
+        const parts = text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+        return parts.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
+      }
+
+      function openWorkById(id) {
+        const item = byId.get(id);
+        if (!item) {
+          setPanel('WORK', '<p class="sub">この作品は見つかりませんでした。</p>');
+          return;
+        }
+
+        const title = safeText(item.title || item.name);
+        const desc = safeText(item.description || item.desc);
+        const image = toAbsUrl(item.image || item.imagePath || item.thumb);
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        const href = safeText(item.href || item.url || '');
+        const note = item.note || item.article || item.body || '';
+
+        const tagsHtml = tags.length
+          ? `<div class="work-tags">${tags
+            .slice(0, 12)
+            .map((t) => `<span class="work-tag">${escapeHtml(t)}</span>`)
+            .join('')}</div>`
+          : '';
+
+        const coverHtml = image
+          ? `<div class="cover"><img src="${escapeHtml(image)}" alt="${escapeHtml(title || 'work')}" loading="lazy" decoding="async"></div>`
+          : '';
+
+        const actions = [
+          '<button type="button" class="btn" id="work-panel-close-inline">Close</button>',
+        ];
+        if (href) {
+          actions.push(
+            `<a class="btn" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Link</a>`,
+          );
+        }
+
+        const html = `
+          <article class="work-article">
+            <h3>${escapeHtml(title)}</h3>
+            <p class="meta">${escapeHtml(desc)}</p>
+            ${tagsHtml}
+            ${coverHtml}
+            <div class="note">${renderNote(note)}</div>
+            <div class="actions">${actions.join('')}</div>
+          </article>
+        `;
+
+        setPanel(title || 'WORK', html);
+
+        // Wire inline close button
+        const closeInline = document.getElementById('work-panel-close-inline');
+        closeInline?.addEventListener('click', () => {
+          document.getElementById('work-panel-close')?.click();
+        });
+      }
+
+      function renderTabs(items) {
+        if (!tabsEl) return;
+
+        const counts = countByTag(items);
+
+        // Build ordered tag list: All + pinned existing + remaining tags (by count desc)
+        const existingTags = Array.from(counts.keys());
+        const pinned = PINNED_TABS.filter((t) => counts.has(t));
+        const rest = existingTags
+          .filter((t) => !pinned.includes(t))
+          .sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0));
+
+        const tags = ['All', ...pinned, ...rest];
+
+        tabsEl.innerHTML = '';
+
+        for (const tag of tags) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'work-tab';
+          btn.setAttribute('role', 'tab');
+          btn.dataset.tag = tag;
+
+          const count = tag === 'All' ? items.length : (counts.get(tag) || 0);
+          btn.textContent = `${tag} (${count})`;
+
+          const isActive = tag === activeTag;
+          if (isActive) btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          btn.tabIndex = isActive ? 0 : -1;
+
+          btn.addEventListener('click', () => {
+            activeTag = tag;
+            updateTabsActive();
+            renderGridFiltered();
+          });
+
+          tabsEl.appendChild(btn);
+        }
+      }
+
+      function updateTabsActive() {
+        if (!tabsEl) return;
+        const children = Array.from(tabsEl.querySelectorAll('.work-tab'));
+        for (const el of children) {
+          const isActive = el.dataset.tag === activeTag;
+          el.classList.toggle('is-active', isActive);
+          el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          el.tabIndex = isActive ? 0 : -1;
+        }
+      }
+
+      function filterItems(items) {
+        if (activeTag === 'All') return items;
+        return items.filter((it) => normalizeTags(it.tags).includes(activeTag));
+      }
+
+      function renderGrid(items) {
+        grid.innerHTML = '';
+        for (const item of items) {
+          grid.appendChild(renderWorkCard(item));
+        }
+      }
+
+      function renderGridFiltered() {
+        const filtered = filterItems(allItems);
+        if (!filtered.length) {
+          grid.innerHTML = '';
+          err.style.display = 'block';
+          err.textContent = `「${activeTag}」に該当する作品がありません。`;
+          return;
+        }
+        err.style.display = 'none';
+        err.textContent = '';
+        renderGrid(filtered);
+      }
+
+      function renderWorkCard(item) {
+        const id = safeText(item.id || item.workId || item.slug).trim();
+        const title = safeText(item.title || item.name);
+        const desc = safeText(item.description || item.desc);
+        const image = toAbsUrl(item.image || item.imagePath || item.thumb);
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+
+        const card = el('article', 'card work-card');
+
+        if (image) {
+          const img = el('img', 'work-img');
+          img.loading = 'lazy';
+          img.decoding = 'async';
+          img.src = image;
+          img.alt = title || 'work image';
+          card.appendChild(img);
+        }
+
+        const body = el('div', 'work-body');
+
+        if (title) {
+          const h = el('h3', 'work-title');
+          h.textContent = title;
+          body.appendChild(h);
+        }
+
+        if (desc) {
+          const p = el('p', 'work-desc');
+          p.textContent = desc;
+          body.appendChild(p);
+        }
+
+        if (tags.length) {
+          const list = el('div', 'work-tags');
+          for (const t of tags.slice(0, 8)) {
+            const chip = el('span', 'work-tag');
+            chip.textContent = safeText(t);
+            list.appendChild(chip);
+          }
+          body.appendChild(list);
+        }
+
+        {
+          const meta = el('div', 'work-meta');
+          const btn = el('button', 'work-cta');
+          btn.type = 'button';
+          btn.textContent = 'Open';
+          btn.disabled = !id;
+          btn.title = id ? '' : 'works.json に id を追加してください';
+          if (id) btn.setAttribute('data-work-open', id);
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!id) return;
+            openWorkById(id);
+          });
+          meta.appendChild(btn);
+          body.appendChild(meta);
+        }
+
+        card.appendChild(body);
+        return card;
+      }
+
+      function stripComments(jsonStr) {
+        return jsonStr
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/,(\s*[\]}])/g, "$1");
+      }
+
+      async function loadWorks() {
+        try {
+          err.style.display = 'none';
+          err.textContent = '';
+
+          const res = await fetch(WORKS_JSON_URL, { cache: 'no-store' });
+          if (!res.ok) {
+            throw new Error(`works.json fetch failed: ${res.status}`);
+          }
+
+          const text = await res.text();
+          const json = JSON.parse(stripComments(text));
+          const items = normalizeWorks(json);
+
+          allItems = items;
+
+          byId.clear();
+          for (const it of items) {
+            const id = safeText(it.id || it.workId || it.slug).trim();
+            if (id) byId.set(id, it);
+          }
+
+          if (!items.length) {
+            if (tabsEl) tabsEl.innerHTML = '';
+            grid.innerHTML = '';
+            err.style.display = 'block';
+            err.textContent = 'works.json に表示できるデータがありません。';
+            return;
+          }
+
+          // Reset to All if activeTag doesn't exist anymore
+          const counts = countByTag(items);
+          if (activeTag !== 'All' && !counts.has(activeTag)) {
+            activeTag = 'All';
+          }
+
+          renderTabs(items);
+          renderGridFiltered();
+        } catch (e) {
+          console.warn('[WORK] load failed', e);
+          err.style.display = 'block';
+          err.textContent = 'WORKの読み込みに失敗しました。assets/data/works.json の配置とJSON形式を確認してください。';
+        }
+      }
+
+      // Initial load
+      loadWorks();
+
+      // Optional: allow manual reload/open from console
+      window.__reloadWorks = loadWorks;
+      window.__openWork = openWorkById;
+    })();
+  </script>
+</section>

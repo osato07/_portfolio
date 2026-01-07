@@ -1,0 +1,156 @@
+<header class="topbar">
+  <button class="brand" id="brand-easter" type="button" aria-label="Brand easter egg">
+    <span class="brand__text" id="brand-easter-text">NAKAMOTO SATOSHI</span>
+    <span class="brand__peek" aria-hidden="true">
+      <img class="brand__peekImg" src="assets/image/bomb.png" alt="" />
+    </span>
+  </button>
+  <nav class="nav">
+    <a href="#work">Work</a>
+    <a href="#info">Info</a>
+    <a href="#contact">Contact</a>
+  </nav>
+<style>
+  /* Brand easter egg (click-to-cycle text, final reveals image peek) */
+  .topbar .brand {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topbar .brand:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+    border-radius: 10px;
+  }
+
+  .brand__text {
+    display: inline-block;
+    transition: transform 140ms ease, opacity 140ms ease;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+  .brand.is-bump .brand__text {
+    transform: translateY(-1px) scale(1.02);
+  }
+
+  /* Peek container sits above the brand and drops down on final stage */
+  .brand__peek {
+    pointer-events: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translateY(calc(-100% - 10px));
+    opacity: 0;
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+  }
+  .brand__peekImg {
+    display: block;
+    width: 86px;
+    height: 86px;
+    object-fit: cover;
+    border-radius: 18px;
+  }
+
+  .brand.is-reveal .brand__peek {
+    opacity: 1;
+    animation: brand-peek-in 520ms cubic-bezier(.2, .8, .2, 1) forwards;
+  }
+  @keyframes brand-peek-in {
+    0% { transform: translateY(calc(-100% - 10px)); }
+    72% { transform: translateY(-10px); }
+    100% { transform: translateY(-4px); }
+  }
+</style>
+
+<script>
+  (() => {
+    const btn = document.getElementById('brand-easter');
+    const textEl = document.getElementById('brand-easter-text');
+
+    // ===== Sound effects =====
+    // Countdown sounds: m4a (4,3,2,1,0)
+    const countdownSounds = {
+      4: new Audio('./assets/sound/countdown_4.m4a'),
+      3: new Audio('./assets/sound/countdown_3.m4a'),
+      2: new Audio('./assets/sound/countdown_2.m4a'),
+      1: new Audio('./assets/sound/countdown_1.m4a'),
+      0: new Audio('./assets/sound/countdown_0.m4a'),
+    };
+
+    // Explosion sound: mp3
+    const explosionSound = new Audio('./assets/sound/bomb.mp3');
+    explosionSound.volume = 0.7;
+
+    const playSound = (audio) => {
+      try {
+        audio.currentTime = 0;
+        audio.play();
+      } catch (e) {
+        // autoplay restrictions or other errors are silently ignored
+      }
+    };
+
+    if (!btn || !textEl) return;
+
+    const states = [
+      'NAKAMOTO SATOSHI',
+      'NAKAMOTO SATO4',
+      'NAKAMOTO 3TOSHI',
+      'NAKAMOTO SA2SHI',
+      'NAKAMOTO SATOSH1',
+      'NAKAMOTO SAT0SHI',
+    ];
+
+    let idx = 0;
+
+    const bump = () => {
+      btn.classList.add('is-bump');
+      window.setTimeout(() => btn.classList.remove('is-bump'), 160);
+    };
+
+    const setText = (next) => {
+      textEl.style.opacity = '0.35';
+      window.setTimeout(() => {
+        textEl.textContent = next;
+        textEl.style.opacity = '1';
+      }, 70);
+    };
+
+    btn.addEventListener('click', () => {
+      bump();
+
+      idx += 1;
+
+      // Countdown sound (only when counting down numbers)
+      const remaining = states.length - 1 - idx;
+      if (remaining >= 0 && remaining <= 4 && countdownSounds[remaining]) {
+        playSound(countdownSounds[remaining]);
+      }
+
+      // Cycle through text states, then reveal image on the final stage.
+      if (idx < states.length) {
+        setText(states[idx]);
+        btn.classList.remove('is-reveal');
+        return;
+      }
+
+      // Explosion sound
+      playSound(explosionSound);
+
+      // Final click: reset text and reveal the peek image.
+      idx = 0;
+      setText(states[0]);
+      btn.classList.add('is-reveal');
+    });
+  })();
+</script>
+</header>

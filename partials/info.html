@@ -1,0 +1,69 @@
+<section class="page" id="info">
+  <h2>INFO</h2>
+  <p class="sub">ここにプロフィールを配置します。</p>
+  <div class="card" style="padding:18px; min-height:auto;">
+    <div style="display:flex; gap:14px; flex-wrap:wrap;">
+      <span style="border:1px solid var(--line); border-radius:999px; padding:8px 12px; background:rgba(255,255,255,.75);">Flutter</span>
+      <span style="border:1px solid var(--line); border-radius:999px; padding:8px 12px; background:rgba(255,255,255,.75);">App</span>
+      <span style="border:1px solid var(--line); border-radius:999px; padding:8px 12px; background:rgba(255,255,255,.75);">成長貢献ユーモア</span>
+      <span style="border:1px solid var(--line); border-radius:999px; padding:8px 12px; background:rgba(255,255,255,.75);">食べることが好き</span>
+    </div>
+  </div>
+
+  <!-- 図鑑 (Saved Info from hero.json where type="info") -->
+  <div class="card" style="padding:18px; min-height:auto; margin-top:14px;">
+    <p class="sub" style="margin:0 0 10px 0;">図鑑（モデルを押して見つけた情報）</p>
+    <div id="info-zukan-tags" style="display:flex; gap:14px; flex-wrap:wrap;"></div>
+
+    <script>
+      (() => {
+        const slot = document.getElementById('info-zukan-tags');
+        if (!slot) return;
+
+        const pill = (text) => {
+          const el = document.createElement('span');
+          el.style.border = '1px solid var(--line)';
+          el.style.borderRadius = '999px';
+          el.style.padding = '8px 12px';
+          el.style.background = 'rgba(255,255,255,.75)';
+          el.textContent = text;
+          return el;
+        };
+
+        const render = () => {
+          console.log('[info] render zukan');
+          const book = window.CacheBook;
+          const list = (book && typeof book.listVoices === 'function') ? book.listVoices() : [];
+
+          // Extract info texts; de-dup while preserving order
+          const seen = new Set();
+          const texts = [];
+          for (const item of list) {
+            const t = item && item.meta ? item.meta.text : null;
+            if (!t) continue;
+            if (seen.has(t)) continue;
+            seen.add(t);
+            texts.push(t);
+          }
+
+          console.log('[info] CacheBook exists?', !!book);
+          console.log('[info] listVoices()', list);
+          console.log('[info] texts', texts);
+
+          slot.innerHTML = '';
+          if (texts.length === 0) {
+            slot.appendChild(pill('まだ見つかっていません'));
+            return;
+          }
+          for (const t of texts) slot.appendChild(pill(t));
+        };
+
+        render();
+        window.addEventListener('zukan:changed', render);
+        console.log('[info] listener attached: zukan:changed');
+        // one-time dump for debugging
+        if (window.CacheBook && typeof window.CacheBook.debugDump === 'function') window.CacheBook.debugDump();
+      })();
+    </script>
+  </div>
+</section>

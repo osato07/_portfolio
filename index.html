@@ -1,0 +1,46 @@
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SatoshiNakamoto/遊び心のあるポートフォリオ</title>
+  <link rel="stylesheet" href="./assets/css/style.css" />
+  <script src="./assets/js/cach.js" defer></script>
+</head>
+
+<body>
+  <!-- ここに partial を差し込む -->
+  <div data-include="./partials/header.html"></div>
+
+  <div id="app-layout" class="app-layout">
+    <main id="main-content" class="main-content">
+      <div data-include="./partials/hero.html"></div>
+      <div data-include="./partials/work.html"></div>
+      <div data-include="./partials/info.html"></div>
+      <div data-include="./partials/contact.html"></div>
+      <div data-include="./partials/footer.html"></div>
+    </main>
+
+    <aside id="work-panel" class="work-panel" aria-hidden="true">
+      <div class="work-panel__body" id="work-panel-body">
+        <p class="sub">Open を押すとここに詳細が表示されます。</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- partial 読み込み -->
+  <script src="./assets/js/include-partials.js"></script>
+  <!-- three importmap は index に置く（モジュール解決のため） -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+        "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/controls/OrbitControls.js",
+        "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js"
+      }
+    }
+  </script>
+  <script type="module" src="./assets/js/three.js"></script>
+  <script src="./assets/js/open-manel.js"></script>
+  
+</body>
+</html>

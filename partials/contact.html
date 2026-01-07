@@ -1,0 +1,753 @@
+<section class="page" id="contact">
+  <h2>CONTACT</h2>
+  <p class="sub">制作のご依頼、取材依頼等はこちらからお問合せください。</p>
+  <div id="contact-form-slot"></div>
+  <div class="card" id="plane-area" style="padding:18px; min-height:220px;"></div>
+
+  <script>
+    (() => {
+      const area = document.getElementById("plane-area");
+      if (!area) return;
+
+      // ===== Contact UI (overlay buttons + form) =====
+      const formSlot = document.getElementById("contact-form-slot");
+
+      // フォーム（CONTACTタイトルとplane-areaの間に表示）
+      const formWrap = document.createElement("div");
+      formWrap.style.display = "none";
+      formWrap.style.margin = "10px 0 10px 0";
+      formWrap.style.padding = "14px";
+      formWrap.style.border = "1px solid rgba(0,0,0,0.10)";
+      formWrap.style.borderRadius = "14px";
+      formWrap.style.background = "rgba(255,255,255,0.72)";
+      formWrap.style.backdropFilter = "blur(8px)";
+      formWrap.style.pointerEvents = "auto";
+      formWrap.style.position = "relative";
+      formWrap.style.zIndex = "7";
+
+      formWrap.innerHTML = `
+        <form id="contactForm" style="display:grid; gap:10px;">
+          <div style="display:grid; gap:6px;">
+            <label style="font-size:12px; opacity:.75;">お名前</label>
+            <input name="name" required
+              style="height:40px; padding:0 12px; border-radius:10px; border:1px solid rgba(0,0,0,0.16); background:#fff;" />
+          </div>
+          <div style="display:grid; gap:6px;">
+            <label style="font-size:12px; opacity:.75;">メール</label>
+            <input type="email" name="email" required
+              style="height:40px; padding:0 12px; border-radius:10px; border:1px solid rgba(0,0,0,0.16); background:#fff;" />
+          </div>
+          <div style="display:grid; gap:6px;">
+            <label style="font-size:12px; opacity:.75;">内容</label>
+            <textarea name="message" rows="4" required
+              style="padding:10px 12px; border-radius:10px; border:1px solid rgba(0,0,0,0.16); background:#fff; resize:vertical;"></textarea>
+          </div>
+          <button type="submit"
+            style="height:42px; border-radius:12px; border:0; background:#111; color:#fff; cursor:pointer;">
+            送信
+          </button>
+          <div id="contactStatus" style="font-size:12px; opacity:.8;"></div>
+        </form>
+      `;
+      if (formSlot) formSlot.appendChild(formWrap);
+
+
+      formWrap.querySelector("#contactForm")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+        const name = String(fd.get("name") ?? "").trim();
+        const email = String(fd.get("email") ?? "").trim();
+        const message = String(fd.get("message") ?? "").trim();
+
+        const statusEl = formWrap.querySelector("#contactStatus");
+        const submitBtn = formWrap.querySelector("button[type=submit]");
+
+        if (statusEl) statusEl.textContent = "送信中...";
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = "0.75";
+          submitBtn.style.cursor = "not-allowed";
+        }
+
+        try {
+          const res = await fetch("/assets/api/contact_send.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name,
+              email,
+              message,
+              page: location.href,
+              ua: navigator.userAgent,
+            }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok || !data.ok) {
+            const base = data && data.error ? String(data.error) : "送信に失敗しました。";
+            const detail = data && data.detail ? `（${String(data.detail)}）` : "";
+            throw new Error(`${base}${detail}`);
+          }
+
+          if (statusEl) statusEl.textContent = "送信しました。ありがとうございます。";
+          form.reset();
+        } catch (err) {
+          console.warn("[contact] send failed", err);
+          if (statusEl) {
+            const msg = err instanceof Error ? err.message : "送信に失敗しました。";
+            statusEl.textContent = msg;
+          }
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "1";
+            submitBtn.style.cursor = "pointer";
+          }
+        }
+      });
+      formWrap.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+      // plane-area 中央の縦2列オーバーレイ
+      const overlay = document.createElement("div");
+      overlay.style.position = "absolute";
+      overlay.style.left = "50%";
+      overlay.style.top = "50%";
+      overlay.style.transform = "translate(-50%, -50%)";
+      overlay.style.display = "grid";
+      overlay.style.gap = "10px";
+      overlay.style.zIndex = "6";
+      overlay.style.pointerEvents = "auto";
+
+      const btnForm = document.createElement("button");
+      btnForm.type = "button";
+      btnForm.textContent = "お問い合わせフォーム表示";
+      btnForm.style.height = "42px";
+      btnForm.style.padding = "0 16px";
+      btnForm.style.borderRadius = "14px";
+      btnForm.style.border = "1px solid rgba(0,0,0,0.18)";
+      btnForm.style.background = "rgba(255,255,255,0.78)";
+      btnForm.style.backdropFilter = "blur(8px)";
+      btnForm.style.cursor = "pointer";
+
+      const linkX = document.createElement("a");
+      linkX.textContent = "X のリンク";
+      linkX.href = "https://x.com/osatoosi";
+      linkX.target = "_blank";
+      linkX.rel = "noreferrer";
+      linkX.style.display = "grid";
+      linkX.style.placeItems = "center";
+      linkX.style.height = "42px";
+      linkX.style.padding = "0 16px";
+      linkX.style.borderRadius = "14px";
+      linkX.style.border = "1px solid rgba(0,0,0,0.18)";
+      linkX.style.background = "rgba(255,255,255,0.78)";
+      linkX.style.backdropFilter = "blur(8px)";
+      linkX.style.textDecoration = "none";
+      linkX.style.color = "#111";
+
+      overlay.appendChild(btnForm);
+      overlay.appendChild(linkX);
+      area.appendChild(overlay);
+
+      let overlayHidden = false;
+      function showOverlay() {
+        overlay.style.display = "grid";
+        overlayHidden = false;
+      }
+      function hideOverlay() {
+        overlay.style.display = "none";
+        overlayHidden = true;
+      }
+
+      // ---- Form animation helpers ----
+      let formOpen = false;
+
+      function toggleForm(open) {
+        const willOpen = (open ?? !formOpen);
+
+        // 連打しても破綻しにくいように、displayを先に確保
+        if (willOpen) {
+          formWrap.style.display = "block";
+        }
+
+        // WAAPIで軽い展開アニメ
+        const anim = formWrap.animate(
+          willOpen
+            ? [
+                { opacity: 0, transform: "translateY(-10px) scale(0.98)", height: "0px" },
+                { opacity: 1, transform: "translateY(0px) scale(1)", height: `${formWrap.scrollHeight}px` },
+              ]
+            : [
+                { opacity: 1, transform: "translateY(0px) scale(1)", height: `${formWrap.scrollHeight}px` },
+                { opacity: 0, transform: "translateY(-10px) scale(0.98)", height: "0px" },
+              ],
+          { duration: 260, easing: "cubic-bezier(.2,.9,.2,1)", fill: "forwards" }
+        );
+
+        anim.finished
+          .catch(() => {})
+          .then(() => {
+            formOpen = willOpen;
+
+            if (!willOpen) {
+              formWrap.style.display = "none";
+            }
+
+            // 高さ指定を残さない（レイアウト崩れ防止）
+            formWrap.style.height = "";
+            formWrap.style.opacity = willOpen ? "1" : "0";
+            formWrap.style.transform = willOpen ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.98)";
+          });
+
+        if (willOpen) {
+          formWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      // フォーム表示ボタン
+      btnForm.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleForm(); // 開閉トグル
+      });
+
+      overlay.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+      // --- setup (no extra elements besides planes) ---
+      area.style.position = area.style.position || "relative";
+      area.style.overflow = "hidden";
+
+      // 例: 手が div の右側中央あたりに来る想定（後で人画像を置いたら調整）
+
+      // 1枚ずつ飛ばす間隔（ms）
+      const SPAWN_INTERVAL = 900;
+
+      // 同時に飛ばす枚数を実質1にする（“1枚ずつ”要件）
+      let activePlane = null;
+      let lastSpawnAt = 0;
+
+      // --- Greeter (pops up after a shot-down plane disappears) ---
+      const GREET_MIN_MS = 2000; // fallback duration if audio duration is unknown
+      let nextSpawnAt = 0;       // do not spawn a new plane before this time
+      let isGreeting = false;
+
+      const greeterEl = document.createElement('div');
+      greeterEl.setAttribute('aria-hidden', 'true');
+      greeterEl.style.position = 'absolute';
+      greeterEl.style.left = '50%';
+      greeterEl.style.bottom = '6px';
+      greeterEl.style.transform = 'translate(-50%, 120%)';
+      greeterEl.style.opacity = '0';
+      greeterEl.style.pointerEvents = 'none';
+      greeterEl.style.zIndex = '5';
+
+      const greeterImg = document.createElement('img');
+      greeterImg.alt = '';
+      greeterImg.src = new URL('assets/image/user.png', document.baseURI).toString();
+      greeterImg.addEventListener('error', () => {
+        console.warn('[Greeter] user.png not found at', greeterImg.src);
+      });
+      greeterImg.style.width = '140px';
+      greeterImg.style.height = '140px';
+      greeterImg.style.objectFit = 'contain';
+      greeterImg.style.filter = 'drop-shadow(0 10px 18px rgba(0,0,0,0.18))';
+
+      greeterEl.appendChild(greeterImg);
+      area.appendChild(greeterEl);
+
+      const greetAudio = new Audio(new URL('assets/sound/contact_jozu.m4a', document.baseURI).toString());
+      greetAudio.preload = 'auto';
+
+      // Beam (laser) fire sound: mp3
+      const beamAudio = new Audio(new URL('assets/sound/beam.mp3', document.baseURI).toString());
+      beamAudio.preload = 'auto';
+      beamAudio.volume = 0.8;
+
+      const playSfx = (audio) => {
+        try {
+          audio.currentTime = 0;
+          const p = audio.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (_) {
+          // ignore autoplay restrictions / other errors
+        }
+      };
+
+      async function playGreeter(now) {
+        if (isGreeting) return;
+        isGreeting = true;
+
+        // prevent spawning during greeting
+        nextSpawnAt = Math.max(nextSpawnAt, now + GREET_MIN_MS);
+
+        // pop up
+        greeterEl.style.opacity = '1';
+        const upAnim = greeterEl.animate(
+          [
+            { transform: 'translate(-50%, 120%)', opacity: 0 },
+            { transform: 'translate(-50%, 0%)', opacity: 1 },
+          ],
+          { duration: 260, easing: 'cubic-bezier(.2,.9,.2,1)', fill: 'forwards' },
+        );
+
+        // try play audio (should work because this sequence is triggered by a tap)
+        let audioDone = false;
+        const audioPromise = (async () => {
+          try {
+            greetAudio.currentTime = 0;
+            await greetAudio.play();
+            await new Promise((resolve) => {
+              const onEnd = () => {
+                greetAudio.removeEventListener('ended', onEnd);
+                resolve();
+              };
+              greetAudio.addEventListener('ended', onEnd);
+            });
+          } catch (_) {
+            // Autoplay may be blocked; fall back to timer.
+            await new Promise((r) => setTimeout(r, GREET_MIN_MS));
+          }
+          audioDone = true;
+        })();
+
+        await Promise.all([upAnim.finished.catch(() => {}), audioPromise]);
+
+        // ensure at least GREET_MIN_MS visible
+        if (!audioDone) {
+          await new Promise((r) => setTimeout(r, GREET_MIN_MS));
+        }
+
+        // hide down
+        const downAnim = greeterEl.animate(
+          [
+            { transform: 'translate(-50%, 0%)', opacity: 1 },
+            { transform: 'translate(-50%, 120%)', opacity: 0 },
+          ],
+          { duration: 260, easing: 'cubic-bezier(.2,.9,.2,1)', fill: 'forwards' },
+        );
+        await downAnim.finished.catch(() => {});
+
+        greeterEl.style.opacity = '0';
+
+        // allow spawning again
+        nextSpawnAt = Math.max(nextSpawnAt, performance.now());
+        isGreeting = false;
+      }
+
+      // User requested stop point (set on pointer down)
+      let requestedStop = null; // {x, y} in area local coords
+
+      // requestAnimationFrame loop
+      let lastT = performance.now();
+
+      // --- Laser (fixed thin line near right side) ---
+      const LASER_X_FRAC = 0.82;          // 0..1 (near right)
+      const LASER_HIT_PX = 12;            // hit tolerance
+      const LASER_RISE_MS = 420;          // beam rise duration
+      const LASER_FADE_MS = 260;          // beam fade duration
+
+      
+      // --- Beam launcher UI (image) ---
+      // Use a prepared asset: assets/image/beam.png
+      const launcherEl = document.createElement('img');
+      launcherEl.setAttribute('aria-hidden', 'true');
+      launcherEl.alt = '';
+      launcherEl.src = new URL('assets/image/beam.png', document.baseURI).toString();
+      launcherEl.addEventListener('error', () => {
+        console.warn('[Launcher] beam.png not found at', launcherEl.src);
+      });
+      launcherEl.style.position = 'absolute';
+      launcherEl.style.left = '0px';
+      launcherEl.style.bottom = '6px';
+      launcherEl.style.transform = 'translateX(-50%)';
+      launcherEl.style.pointerEvents = 'none';
+      launcherEl.style.zIndex = '4';
+      launcherEl.style.width = '56px';
+      launcherEl.style.height = 'auto';
+      launcherEl.style.opacity = '1';
+      launcherEl.style.filter = 'drop-shadow(0 10px 18px rgba(0,0,0,0.12))';
+      area.appendChild(launcherEl);
+
+      const laserEl = document.createElement('div');
+      laserEl.setAttribute('aria-hidden', 'true');
+      laserEl.style.position = 'absolute';
+      laserEl.style.left = '0px';
+      laserEl.style.bottom = '0px';
+      laserEl.style.width = '3px';
+      laserEl.style.height = '0px';
+      laserEl.style.opacity = '0';
+      laserEl.style.pointerEvents = 'none';
+      laserEl.style.zIndex = '3';
+      laserEl.style.background = 'rgba(255, 60, 60, 0.18)';
+      laserEl.style.boxShadow = '0 0 18px rgba(255, 60, 60, 0.35)';
+      laserEl.style.borderRadius = '999px';
+      area.appendChild(laserEl);
+
+      let laserState = null;
+      // laserState: {t0, riseEnd, fadeEnd, xPx, targetHeight, hitPlane}
+
+      function updateLaserPosition() {
+        const r = getAreaRect();
+        const xPx = r.width * LASER_X_FRAC;
+        const x = Math.round(xPx);
+        laserEl.style.left = `${x}px`;
+        // Launcher UI sits centered on the beam line
+        if (launcherEl) launcherEl.style.left = `${x}px`;
+        return xPx;
+      }
+
+      // Keep launcher/laser aligned even if layout changes after initial paint.
+      function alignLauncherSoon() {
+        // Run a few times to catch late layout (fonts/images/CSS)
+        requestAnimationFrame(() => updateLaserPosition());
+        requestAnimationFrame(() => requestAnimationFrame(() => updateLaserPosition()));
+      }
+
+      // Observe size changes of the area (responsive + reload timing)
+      const ro = new ResizeObserver(() => {
+        updateLaserPosition();
+      });
+      ro.observe(area);
+
+      window.addEventListener('resize', () => updateLaserPosition());
+
+      // Fonts can shift layout after load
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => alignLauncherSoon()).catch(() => {});
+      }
+
+      function rand(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function getAreaRect() {
+        return area.getBoundingClientRect();
+      }
+
+      // Tap/click to stop the current plane at its CURRENT position
+      area.addEventListener('pointerdown', (e) => {
+        // 背景タップでボタンを消す（overlay/form上は消さない）
+        if (!(overlay.contains(e.target) || formWrap.contains(e.target))) {
+          hideOverlay();
+        } else {
+          return; // UI触ってる時はゲーム止めない
+        }
+
+        // ここから先は「紙飛行機ストップ」ロジック
+        if (!activePlane || activePlane.caught) return;
+
+        requestedStop = {x: activePlane.x ?? 0, y: activePlane.y ?? 0};
+
+        // Play beam SFX on fire
+        playSfx(beamAudio);
+
+        laserState = {
+          t0: performance.now(),
+          riseEnd: 0,
+          fadeEnd: 0,
+          xPx: 0,
+          targetHeight: 0,
+          hitPlane: false,
+        };
+      });
+
+      function makePlaneEl() {
+        const el = document.createElement("div");
+        el.className = "paper-plane";
+        el.setAttribute("aria-hidden", "true");
+        el.style.position = "absolute";
+        el.style.left = "0px";
+        el.style.top = "0px";
+        el.style.width = "0";
+        el.style.height = "0";
+        el.style.pointerEvents = "none";
+
+        // triangle plane (right-facing)
+        el.style.borderTop = "8px solid transparent";
+        el.style.borderBottom = "8px solid transparent";
+        el.style.borderLeft = "18px solid rgba(0,0,0,0.75)";
+        el.style.filter = "drop-shadow(0 3px 6px rgba(0,0,0,0.18))";
+        el.style.transformOrigin = "0 50%";
+        return el;
+      }
+
+      function spawnPlane(now) {
+        const r = getAreaRect();
+        const startY = rand(r.height * 0.15, r.height * 0.85);
+        const endY = rand(r.height * 0.10, r.height * 0.90);
+
+        const startX = -40;
+        const endX = r.width + 40;
+
+        const duration = rand(1400, 2400);
+        const amp = rand(r.height * 0.04, r.height * 0.12);
+        const freq = rand(1.2, 2.6);
+        const tilt = rand(-12, 12);
+
+        const el = makePlaneEl();
+        area.appendChild(el);
+        el.style.opacity = "1";
+
+        activePlane = {
+          el,
+          t0: now,
+          duration,
+          startX,
+          endX,
+          startY,
+          endY,
+          amp,
+          freq,
+          tilt,
+          caught: false,
+          catchAnimT0: 0,
+          fadeStartAt: 0,
+          fadeEndAt: 0,
+          mode: 'fly', // 'fly' | 'caught' | 'shot'
+          pendingShot: false,
+          fallT0: 0,
+          fallY0: 0,
+          fallOpacity0: 1,
+          fallFadeMs: 900,
+        };
+
+        el.style.transform = `translate(${startX}px, ${startY}px) rotate(${tilt}deg)`;
+      }
+
+
+      function runCatchAnimation(p, now) {
+        const dt = now - p.catchAnimT0;
+        const t = clamp(dt / 520, 0, 1);
+
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        const easeOutBack =
+          1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+
+        const scale = 1 + 0.18 * easeOutBack * (1 - t);
+        const rot = p.tilt + 360 * t;
+        p.el.style.transform =
+          `translate(${p.x}px, ${p.y}px) rotate(${rot}deg) scale(${scale})`;
+
+        if (t >= 1) {
+          p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.tilt}deg)`;
+        }
+      }
+
+      function tick(now) {
+        lastT = now;
+        updateLaserPosition();
+
+        if (!activePlane && now >= nextSpawnAt && now - lastSpawnAt >= SPAWN_INTERVAL) {
+          lastSpawnAt = now;
+          spawnPlane(now);
+        }
+
+        if (activePlane) {
+          const p = activePlane;
+
+          // If user clicked/tapped, stop the plane at that exact point.
+          if (!p.caught && requestedStop) {
+            // Stop at the plane position captured at tap time
+            const stopX = requestedStop.x;
+            const stopY = requestedStop.y;
+
+            p.x = stopX;
+            p.y = stopY;
+
+            // Laser fire: rise from bottom to the plane's Y, along a fixed X line
+            const r = getAreaRect();
+            const laserX = updateLaserPosition();
+            // Laser should reach the edge (top) of the area
+            const targetHeight = r.height;
+
+            if (laserState) {
+              laserState.t0 = now;
+              laserState.riseEnd = now + LASER_RISE_MS;
+              laserState.fadeEnd = laserState.riseEnd + LASER_FADE_MS;
+              laserState.xPx = laserX;
+              laserState.targetHeight = targetHeight;
+            } else {
+              laserState = {
+                t0: now,
+                riseEnd: now + LASER_RISE_MS,
+                fadeEnd: now + LASER_RISE_MS + LASER_FADE_MS,
+                xPx: laserX,
+                targetHeight,
+                hitPlane: false,
+              };
+            }
+
+            // Hit check (same x => knocked down). Use the plane tip-ish x.
+            const planeX = p.x + 10;
+            const hit = Math.abs(planeX - laserX) <= LASER_HIT_PX;
+            if (laserState) laserState.hitPlane = hit;
+
+            // Decide mode
+            p.mode = hit ? 'shot' : 'caught';
+            p.pendingShot = hit;
+
+            p.caught = true;
+            p.catchAnimT0 = now;
+            p.el.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.22))";
+            // Hold for 2s, then fade out over 1s (only when NOT shot)
+            if (p.mode === 'caught') {
+              p.fadeStartAt = now + 2000;
+              p.fadeEndAt = now + 3000;
+              p.el.style.opacity = "1";
+            } else {
+              // shot planes will be removed via fall animation
+              p.fadeStartAt = 0;
+              p.fadeEndAt = 0;
+              p.el.style.opacity = "1";
+            }
+
+            // Consume the request so only one stop per plane
+            requestedStop = null;
+          }
+
+          // --- Laser animation ---
+          if (laserState) {
+            const r = getAreaRect();
+            // Keep x updated if layout changes
+            laserState.xPx = updateLaserPosition();
+
+            if (now <= laserState.riseEnd) {
+              const t = clamp((now - laserState.t0) / LASER_RISE_MS, 0, 1);
+              const h = Math.round(laserState.targetHeight * t);
+              laserEl.style.opacity = '1';
+              laserEl.style.height = `${h}px`;
+              // subtle pulse on launcher while firing
+              launcherEl.style.filter = 'drop-shadow(0 12px 22px rgba(255,60,60,0.10))';
+            }
+
+            // When beam reaches the top (end of rise), trigger shot fall once
+            if (laserState.hitPlane && p.mode === 'shot' && p.pendingShot && now >= laserState.riseEnd) {
+              p.pendingShot = false;
+              p.fallT0 = now;
+              p.fallY0 = p.y;
+              p.fallOpacity0 = 1;
+            }
+
+            else if (now <= laserState.fadeEnd) {
+              const t = clamp((now - laserState.riseEnd) / LASER_FADE_MS, 0, 1);
+              const o = 1 - t;
+              laserEl.style.opacity = String(o);
+              laserEl.style.height = `${Math.round(laserState.targetHeight)}px`;
+              launcherEl.style.filter = `drop-shadow(0 12px 22px rgba(255,60,60,${0.10 * o}))`;
+            } else {
+              // done
+              laserEl.style.opacity = '0';
+              laserEl.style.height = '0px';
+              launcherEl.style.filter = 'drop-shadow(0 10px 18px rgba(0,0,0,0.12))';
+              laserState = null;
+            }
+          }
+
+          if (!p.caught) {
+            const r = getAreaRect();
+            const u = clamp((now - p.t0) / p.duration, 0, 1);
+
+            const x = p.startX + (p.endX - p.startX) * u;
+
+            const yBase = p.startY + (p.endY - p.startY) * u;
+            const yWave = Math.sin(u * Math.PI * 2 * p.freq) * p.amp;
+
+            const dy =
+              (p.endY - p.startY) / p.duration +
+              (Math.cos(u * Math.PI * 2 * p.freq) *
+                p.amp *
+                (Math.PI * 2 * p.freq)) /
+                p.duration;
+            const rot = p.tilt + clamp(dy * 1800, -18, 18);
+
+            p.x = x;
+            p.y = yBase + yWave;
+
+            p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${rot}deg)`;
+
+            if (u >= 1) {
+              p.el.remove();
+              activePlane = null;
+
+              // ボタンが消えている状態で「タップされず通過」が一度でも起きたら再表示
+              if (overlayHidden) showOverlay();
+            }
+          } else {
+            // Shot mode: wait for laser to reach the top, then drop + fade
+            if (p.mode === 'shot') {
+              // Keep plane steady until fall starts
+              if (!p.fallT0) {
+                p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.tilt}deg)`;
+              } else {
+                const r = getAreaRect();
+                const dt = now - p.fallT0;
+
+                const g = 0.0042; // gravity factor
+                const y = p.fallY0 + g * dt * dt;
+                const rot = p.tilt + dt * 0.55;
+
+                p.y = y;
+                p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${rot}deg)`;
+
+                // Fade out while falling
+                const ft = clamp(dt / p.fallFadeMs, 0, 1);
+                p.el.style.opacity = String(1 - ft);
+
+                // Remove after it falls out OR fully faded
+                if (p.y > r.height + 80 || ft >= 1) {
+                  p.el.remove();
+                  activePlane = null;
+
+                  // Start greeter during the gap before the next plane
+                  const tNow = performance.now();
+                  nextSpawnAt = Math.max(nextSpawnAt, tNow + GREET_MIN_MS);
+                  // Fire and forget (keeps animation running while tick continues)
+                  playGreeter(tNow);
+                }
+              }
+              // Do not run normal caught logic when shot
+            } else {
+              // Special animation only at the moment of catching
+              if (now - p.catchAnimT0 <= 520) {
+                runCatchAnimation(p, now);
+              } else {
+                // Keep the last transform stable
+                p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.tilt}deg)`;
+              }
+
+              // Hold 2s, then fade out 1s, then remove
+              if (p.fadeStartAt && now >= p.fadeStartAt) {
+                const t = clamp((now - p.fadeStartAt) / 1000, 0, 1);
+                p.el.style.opacity = String(1 - t);
+
+                if (now >= p.fadeEndAt) {
+                  p.el.remove();
+                  activePlane = null;
+                }
+              }
+            }
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+
+      // Initial laser/launcher alignment (also re-align after layout settles)
+      updateLaserPosition();
+      alignLauncherSoon();
+
+      window.addEventListener("visibilitychange", () => {
+        lastT = performance.now();
+      });
+    })();
+  </script>
+</section>

@@ -1,0 +1,42 @@
+{
+  "works": [
+    {
+      "id": "marugotofes",
+      "title": "まるごと祭2025 公式アプリ",
+      "desc": "まるごと祭2025 文化祭で、参加者のための公式決済アプリを開発しました。",
+      "image": "assets\/image\/work\/marugotofes.jpg",
+      "note": "## 決済アプリの開発",
+      "href": "",
+      "tags": [
+        "Flutter",
+        "アプリ開発"
+      ]
+    },
+    {
+      "id": "dome",
+      "title": "DOME Map",
+      "desc": "BLEでユニット検出してマップに表示するアプリ。",
+      "image": "assets\/image\/work\/dome.jpg",
+      "note": "# DOME Map\n\n## 概要\n\n**DOME Map** は、寮生活をより安全かつ効率的にするために開発した *位置可視化アプリ* です。BLE（Bluetooth Low Energy）を用いてユニットを検出し、現在位置を **リアルタイムでマップ上に表示** します。\n\n> 「誰が・どこに・いるのか」を感覚的に把握できることを重視しました。\n\n---\n\n## 背景・課題\n\n従来の寮管理では、\n\n- 紙や口頭による確認\n- 情報更新の遅れ\n- 管理者の負担増大\n\nといった課題がありました。そこで **自動で・正確に・直感的に** 状況を把握できる仕組みが必要だと考えました。\n\n---\n\n## 主な機能\n\n- **BLEユニット検出**\n- **Google Map 上への位置表示**\n- **ユーザーごとの状態管理**\n- **履歴データの可視化**\n\n```txt\nBLE → データ取得 → マップ描画\n```\n\n---\n\n## 技術スタック\n\n- **Flutter**：クロスプラットフォームUI\n- **Firebase**：認証・データ管理\n- **BLE**：ユニット検出\n\n---\n\n## 工夫したポイント\n\n- UIは *誰でも一瞬で理解できる* ことを最優先\n- 通信量を抑えるために **更新頻度を動的制御**\n- 実運用を想定した **エラー耐性設計**\n\n---\n\n## 今後の展望\n\n- 屋内測位の精度向上\n- 管理者向けダッシュボードの拡充\n- 他施設への展開\n\n---\n\n> 実際の寮運営で使われることを前提に設計した、**現場起点のプロダクト**です。",
+      "href": "https:\/\/example.com",
+      "tags": [
+        "アプリ開発",
+        "Flutter",
+        "起業"
+      ]
+    },
+    {
+      "id": "voipeng",
+      "title": "VOIPENG",
+      "desc": "VoIP着信 + WebRTC 英会話ボット",
+      "image": "assets\/image\/work\/voipeng.jpg",
+      "note": "# VOIPENG\n\n## 概要\n\n**VOIPENG** は、*電話をかける感覚* で英会話を練習できる **VoIP × WebRTC 英会話ボット** です。\n\n英語学習のハードルを、\n\n> 「アプリを開く」→「通話する」\n\nという **最小の操作** にまで下げることを目標にしました。\n\n---\n\n## 解決したい課題\n\n- 英会話アプリは *起動が面倒*\n- 学習モードに入るまでの心理的負荷\n- 実践的な会話量の不足\n\nVOIPENG では、**着信＝英会話** という設計でこれらを解決します。\n\n---\n\n## 仕組み\n\n1. VoIP 着信を受信\n2. WebRTC で即時通話開始\n3. AIボットと英会話\n\n```mermaid\nsequenceDiagram\nUser->>Bot: Call\nBot->>User: Conversation\n```\n\n---\n\n## 使用技術\n\n- **Flutter**：アプリUI\n- **Firebase**：ユーザー管理・Functions\n- **WebRTC**：リアルタイム音声通信\n- **AI API**：会話生成\n\n---\n\n## こだわりポイント\n\n- **UIを極限まで削ぎ落とす**\n- 通話品質を最優先した設計\n- 学習というより *体験* に近いUX\n\n---\n\n## 今後やりたいこと\n\n- レベル別会話シナリオ\n- 会話ログの振り返り機能\n- 教育現場での実証実験\n\n---\n\n> 英語学習を「作業」ではなく、**日常の延長**にすることを目指しています。",
+      "href": "https:\/\/example.com",
+      "tags": [
+        "Flutter",
+        "Firebase",
+        "WebRTC"
+      ]
+    }
+  ]
+}

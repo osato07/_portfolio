@@ -1,0 +1,195 @@
+<section class="hero" id="top">
+  <div id="stage"></div>
+  <!-- Left edge hidden face (hover to reveal + play) -->
+  <!-- Invisible hover zone stays at the edge; the panel slides in flush with the edge -->
+  <div class="hide-peek-zone" aria-label="hidden face">
+    <button type="button" class="hide-peek-panel" aria-label="open hidden face">
+      <img src="assets/image/user.png" alt="" loading="lazy" decoding="async" />
+    </button>
+  </div>
+
+  <script>
+    (() => {
+      const zone = document.querySelector('#top .hide-peek-zone');
+      const panel = document.querySelector('#top .hide-peek-panel');
+      if (!zone || !panel) return;
+
+      // Cookie-based progress (図鑑)
+      // NOTE: cach.js must be loaded before this runs.
+      const book = window.CacheBook;
+      const KEY_HIDE_PEEK_FIRST = 'first.hidePeek';
+      const hasBook = !!book && typeof book.has === 'function' && typeof book.mark === 'function';
+
+      const audio = new Audio('assets/sound/hide1.m4a');
+      audio.preload = 'auto';
+
+      // Many browsers block audio on hover until the page has a user gesture.
+      // Unlock once on the first pointer/keyboard interaction.
+      let unlocked = false;
+      const unlockAudioOnce = () => {
+        if (unlocked) return;
+        unlocked = true;
+        try {
+          audio.muted = true;
+          const p = audio.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              audio.pause();
+              audio.currentTime = 0;
+              audio.muted = false;
+            }).catch(() => {
+              audio.muted = false;
+            });
+          } else {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.muted = false;
+          }
+        } catch (_) {
+          audio.muted = false;
+        }
+      };
+
+      // Unlock on first user gesture anywhere.
+      window.addEventListener('pointerdown', unlockAudioOnce, { once: true, passive: true });
+      window.addEventListener('keydown', unlockAudioOnce, { once: true });
+
+      let armed = true;
+
+      const play = () => {
+        // Always play the sound. Progress is tracked separately via cookies.
+        try { audio.currentTime = 0; } catch (_) {}
+        const p = audio.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+
+        // Mark as seen only once (first time).
+        if (hasBook && !book.has(KEY_HIDE_PEEK_FIRST)) {
+          book.mark(KEY_HIDE_PEEK_FIRST, { source: 'hide-peek', sound: 'hide1.m4a' });
+        }
+      };
+
+      // Hover zone controls open/close (prevents flicker because the zone always exists)
+      zone.addEventListener('mouseenter', () => {
+        if (!armed) return;
+        armed = false;
+        zone.classList.add('is-open');
+        unlockAudioOnce();
+        play();
+      });
+
+      zone.addEventListener('mouseleave', () => {
+        zone.classList.remove('is-open');
+        window.setTimeout(() => { armed = true; }, 400);
+      });
+
+      // Touch fallback: tap opens briefly + plays
+      panel.addEventListener('click', (e) => {
+        e.preventDefault();
+        unlockAudioOnce();
+        zone.classList.add('is-open');
+        play();
+        window.setTimeout(() => zone.classList.remove('is-open'), 900);
+      });
+
+      // Expose helpers for other scripts (three.js etc.)
+      // Call: window.HeroZukan.markVoice('someId', { text: '...', sound: '...' })
+      window.HeroZukan = window.HeroZukan || {};
+      window.HeroZukan.markVoice = (voiceId, meta) => {
+        if (!hasBook) return;
+        if (!voiceId) return;
+
+        // Only persist "info" entries into the 図鑑.
+        // hero.json should pass `{ type: 'info', text: '...', sound: '...' }`.
+        const t = meta && typeof meta === 'object' ? meta.type : undefined;
+        if (t !== 'info') return;
+
+        book.markVoice(voiceId, meta);
+        if (typeof book.emitChange === 'function') book.emitChange();
+      };
+      window.HeroZukan.hasVoice = (voiceId) => {
+        if (!hasBook) return false;
+        if (!voiceId) return false;
+        return book.hasVoice(voiceId);
+      };
+    })();
+  </script>
+
+  <style>
+    /* hidden peek overlay (left edge, ~50px from bottom)
+       - Zone is transparent and sits on the edge (no visible handle by default)
+       - Panel slides in flush with the edge on hover
+    */
+    #top { position: relative; }
+
+    .hide-peek-zone {
+      position: absolute;
+      left: 0;
+      bottom: 50px;
+
+      /* Panel size; zone uses same size to avoid hover flicker when moving the mouse */
+      width: 86px;
+      height: 86px;
+
+      background: transparent;
+      pointer-events: auto;
+      z-index: 2;
+    }
+
+    .hide-peek-panel {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 86px;
+      height: 86px;
+
+      padding: 0;
+      border: 0;
+      border-radius: 18px;
+      overflow: hidden;
+      background: transparent;
+      appearance: none;
+      -webkit-appearance: none;
+      box-shadow: none;
+
+      cursor: pointer;
+
+      /* Completely hidden by default (no visible edge/handle) */
+      transform: translateX(-100%);
+      transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+    }
+
+    /* Reveal on hover/focus or programmatic open */
+    .hide-peek-zone:hover .hide-peek-panel,
+    .hide-peek-zone:focus-within .hide-peek-panel,
+    .hide-peek-zone.is-open .hide-peek-panel {
+      transform: translateX(0);
+    }
+
+    .hide-peek-panel img {
+      background: transparent;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+
+      /* rotate the photo 90deg clockwise */
+      transform: rotate(90deg);
+    }
+  </style>
+  <div class="hud">
+    <div class="title">
+      <b>NakamotoSatoshiを探索する</b>
+    </div>
+    <div class="badge"><i></i>Shift+Scrollで拡大 / Dragで回転</div>
+
+    <div id="model-loader" class="model-loader" aria-hidden="true">
+      <div class="loader-card">
+        <div class="spinner" aria-hidden="true"></div>
+        <div>
+          <div class="loader-text">Loading...</div>
+          <div style="font-size:12px; color:var(--muted);">モデルを読み込み中</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

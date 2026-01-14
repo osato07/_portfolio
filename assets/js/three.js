@@ -59,6 +59,20 @@ function waitForElement(selector, timeoutMs = 8000) {
   const pointer = new THREE.Vector2();
   let tappableRoot = null; // set after model load
 
+  // Interaction variables
+  let activeCollider = null;
+
+  // Morph Animation Variables
+  let morphMesh = null;
+  // Map morph name to index in the mesh
+  const morphIndices = {};
+  // State for pop animations: { name: { current: 0, pop: 0 } }
+  const morphState = {};
+
+  const MORPH_SPEED = 2.5;
+  const lerpSpeed = 0.2;
+
+
   // Cache hero.json so we only fetch once
   let heroCache = null;
   async function loadHeroData() {
@@ -151,21 +165,27 @@ function waitForElement(selector, timeoutMs = 8000) {
 
     commentLayer.appendChild(el);
 
+    // Optimization: Cache layer rect if possible or accept one reflow. 
+    // To reduce jank, we can just read it. The main jank source is synchronous layout.
+    // Let's try to be safer.
     const layerRect = commentLayer.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect(); // This forces layout of 'el'
 
-    // Random Y within the stage (avoid top loader area a bit)
+    // Random Y within the stage
     const paddingTop = 10;
     const paddingBottom = 10;
-    const maxY = Math.max(paddingTop, layerRect.height - paddingBottom - elRect.height);
-    const y = paddingTop + Math.random() * Math.max(0, maxY - paddingTop);
+    // Ensure we don't get negative values
+    const safeHeight = Math.max(0, layerRect.height - paddingBottom - elRect.height);
+    const maxY = Math.max(paddingTop, safeHeight);
+    const y = paddingTop + Math.random() * (maxY - paddingTop);
 
     el.style.top = `${Math.round(y)}px`;
 
     // Animate left -> right across the stage
-    const fromX = -elRect.width - 10;
-    const toX = layerRect.width + 10;
+    const fromX = -elRect.width - 20;
+    const toX = layerRect.width + 20;
 
+    // Use a slightly longer duration for smoothness
     const duration = 6000 + Math.random() * 2500;
 
     const anim = el.animate(
@@ -208,6 +228,33 @@ function waitForElement(selector, timeoutMs = 8000) {
     } catch (e) {
       console.warn("[hero] tap action failed", e);
     }
+  }
+
+  // --- Jaw Pop Trigger ---
+  function triggerJawPop() {
+    // Add pop value (clamped to sensible max later)
+    jawPopValue = 1.0;
+    console.log("[three-stage] Jaw pop triggered!");
+  }
+
+  // Wrap handleModelTap to also check collider
+  async function handleTapOrPop(hits) {
+    // Check if we hit the collider
+    const hitCollider = hits.find(h => h.object.name.includes("COLLIDER_JAW"));
+    if (hitCollider) {
+      triggerJawPop();
+      // Decide if collider click ALSO triggers hero tap. 
+      // User said "tap is possible...". Let's trigger hero tap too for fun, or just pop.
+      // For now, let's allow fallthrough or specific logic.
+      // If the prompt implies the collider is FOR the jaw pop specifically:
+      // triggerJawPop is enough. But the user said "can tap".
+      // Let's assume hitting the collider is a "Jaw Tap".
+      // We can ALSO do the hero tap if needed, but let's stick to pop for collider hits.
+      return;
+    }
+
+    // Otherwise normal model tap
+    await handleModelTap();
   }
   const camera = new THREE.PerspectiveCamera(
     45,
@@ -273,17 +320,76 @@ function waitForElement(selector, timeoutMs = 8000) {
     loaderEl.setAttribute("aria-hidden", v ? "false" : "true");
   };
 
-  // model load（パスはあなたのモデルに合わせて変更）
+  // model load
   const loader = new GLTFLoader();
   showLoader(true);
   loader.load(
-    "./assets/model/ash_face.glb",
+    "./assets/model/satoshi.glb",
     (gltf) => {
       const model = gltf.scene;
       model.position.set(0, 0, 0);
+      // Face front (Rotate right 90 deg)
+      model.rotation.y = -Math.PI / 2;
       scene.add(model);
       tappableRoot = model;
+      tappableRoot = model;
       showLoader(false);
+
+      // Load Colliders
+      const colliders = [
+        { file: 'COLLIDER_JAW.glb', key: 'jaw' },
+        { file: 'COLLIDER_NOSE.glb', key: 'nose' },
+        { file: 'COLLIDER_TOP.glb', key: 'top' },
+        { file: 'COLLIDER_EYE_RIGHT.glb', key: 'eye_right' },
+        { file: 'COLLIDER_EYE_LEFT.glb', key: 'eye_left' },
+        { file: 'COLLIDER_EAR_RIGHT.glb', key: 'ear_right' },
+        { file: 'COLLIDER_EAR_LEFT.glb', key: 'ear_left' },
+      ];
+
+      const colliderLoader = new GLTFLoader();
+
+      colliders.forEach(item => {
+        colliderLoader.load(`./assets/model/${item.file}`, (cGltf) => {
+          const colScene = cGltf.scene;
+          model.add(colScene);
+
+          colScene.traverse((c) => {
+            if (c.isMesh) {
+              // Name it specifically so we can ID it later
+              c.name = `COLLIDER__${item.key}`;
+              c.material.transparent = true;
+              c.material.opacity = 0;
+              c.material.depthWrite = false;
+            }
+          });
+          console.log(`[three-stage] Loaded collider: ${item.key}`);
+        });
+      });
+
+      // Find Multiple Morph Targets
+      model.traverse((child) => {
+        if (child.isMesh && child.morphTargetInfluences && !morphMesh) {
+          const dict = child.morphTargetDictionary;
+          if (dict) {
+            console.log("[three-stage] found mesh with morphs:", child.name, dict);
+
+            // Map known keys to indices
+            const keysToTrack = ['jaw', 'nose', 'top', 'eye_right', 'eye_left', 'ear_right', 'ear_left'];
+            keysToTrack.forEach(key => {
+              if (Object.prototype.hasOwnProperty.call(dict, key)) {
+                morphIndices[key] = dict[key];
+                // Initialize state
+                morphState[key] = { current: 0, pop: 0 };
+                console.log(`[three-stage] Mapped morph: ${key} -> ${dict[key]}`);
+              }
+            });
+
+            if (Object.keys(morphIndices).length > 0) {
+              morphMesh = child;
+            }
+          }
+        }
+      });
     },
     undefined,
     (err) => {
@@ -293,24 +399,46 @@ function waitForElement(selector, timeoutMs = 8000) {
   );
 
   // Tap detection on canvas
-  renderer.domElement.addEventListener("pointerdown", (e) => {
-    if (!tappableRoot) return;
 
-    const rect = renderer.domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-
-    pointer.set(x, y);
-    raycaster.setFromCamera(pointer, camera);
-
-    const hits = raycaster.intersectObject(tappableRoot, true);
-    if (hits && hits.length > 0) {
-      void handleModelTap();
-    }
-  });
 
   function animate() {
     requestAnimationFrame(animate);
+
+    // Animate Morphs
+    if (morphMesh) {
+      // Loop through all mapped keys
+      Object.keys(morphIndices).forEach(key => {
+        const index = morphIndices[key];
+        const state = morphState[key];
+        if (!state) return;
+
+        // Target is usually 0 unless popped
+        let target = 0;
+
+        // If held (only checking jaw for holding logic for now, or maybe generic?)
+        // Original logic had hold for jaw. Let's keep hold logic generic if we want?
+        // Actually user prompt implies "tap" -> "animation happens".
+        // The hold logic was: (activeCollider && activeCollider.name === "COLLIDER_JAW") ? 1.0 : 0.0;
+        // We can adapt that:
+        if (activeCollider && activeCollider.name === `COLLIDER__${key}`) {
+          target = 1.0;
+        }
+
+        // Pop Logic (Additive)
+        if (state.pop > 0) {
+          target = Math.max(target, state.pop);
+          state.pop -= 0.08; // Decay
+          if (state.pop < 0) state.pop = 0;
+        }
+
+        // Lerp
+        state.current += (target - state.current) * lerpSpeed;
+
+        // Apply
+        morphMesh.morphTargetInfluences[index] = state.current;
+      });
+    }
+
     controls.update();
     renderer.render(scene, camera);
   }
@@ -336,13 +464,108 @@ function waitForElement(selector, timeoutMs = 8000) {
   // Initial check
   updateControlsMode();
 
+  // Interaction variables
+  // (activeCollider moved to top scope)
+
+  // Track drag vs tap
+  let isDragging = false;
+  let downX = 0;
+  let downY = 0;
+
+  // Pointer Down (Press)
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    isDragging = false;
+    downX = e.clientX;
+    downY = e.clientY;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    if (intersects.length > 0) {
+      for (let i = 0; i < intersects.length; i++) {
+        const object = intersects[i].object;
+        // Collider Check logic
+        if (object.name && object.name.startsWith("COLLIDER__")) {
+          activeCollider = object;
+          controls.enabled = false;
+          break;
+        }
+      }
+    }
+  });
+
+  // Pointer Move (to detect drag)
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    // simple distance check
+    const moveDist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
+    if (moveDist > 5) {
+      isDragging = true;
+    }
+  });
+
+  // Pointer Up / Leave (Release)
+  function onRelease(e) {
+    // If it was a Collider release
+    if (activeCollider) {
+      activeCollider = null;
+      updateControlsMode();
+    }
+
+    // Handle Click (Tap) Logic here instead of separate 'click' which might conflict
+    // If not dragging and we are inside the canvas
+    if (!isDragging && e.type === "pointerup") {
+      // Raycast again to see what we clicked
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      // Intersect everything including invisible colliders
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      if (intersects.length > 0) {
+        // Check what we hit
+        let hitKey = null;
+
+        // Prioritize direct collider hits
+        for (let i = 0; i < intersects.length; i++) {
+          const obj = intersects[i].object;
+          if (obj.name && obj.name.startsWith("COLLIDER__")) {
+            hitKey = obj.name.replace("COLLIDER__", "");
+            break;
+          }
+        }
+
+        // If we hit the model but NOT a collider (fallback), maybe just do nothing or random?
+        // Or if we hit the main model mesh, maybe we default to 'nose' or just play sound?
+        // The user said "Central nose runs jaw"... we fixed that.
+        // If we hit non-collider, just playing sound is fine.
+        // But if we hit a collider, we pop it.
+
+        if (hitKey && morphState[hitKey]) {
+          morphState[hitKey].pop = 1.0;
+          console.log(`[three-stage] Popping: ${hitKey}`);
+        }
+
+        // Trigger Hero Action (Sound/Text) regardless of what part was hit
+        handleModelTap().catch(err => console.error(err));
+      }
+    }
+  }
+
+  window.addEventListener("pointerup", onRelease);
+  window.addEventListener("pointerleave", onRelease);
+
   window.addEventListener("resize", () => {
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
-    
+
     // Update controls state on resize
     updateControlsMode();
   });
